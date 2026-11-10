@@ -1,0 +1,39 @@
+name: Auto Collect HERE Traffic & Retrain ML Model (CI/CD)
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: 
+
+permissions:
+  contents: write
+
+jobs:
+  collect-and-retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Tai ma nguon tu Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Cai dat Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 3. Cai dat thu vien
+        run: pip install -r requirements.txt
+
+      - name: 4. Goi HERE Traffic API v7 & luu vao data/real_here_traffic.csv
+        run: python collector.py
+
+      - name: 5. Huan luyen lai mo hinh Random Forest (.pkl) voi du lieu moi nhat
+        run: python train_model.py
+
+      - name: 6. Tu dong cap nhat du lieu that & model.pkl moi len GitHub -> Streamlit Cloud
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/real_here_traffic.csv models/
+          git diff --staged --quiet || git commit -m "Auto CI/CD: Cap nhat du lieu HERE API that va retrain model.pkl"
+          git push
